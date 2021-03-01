@@ -1,0 +1,387 @@
+<html>
+    <head>
+		<link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons"> 
+		<link rel="stylesheet" href="css/poc.css"> 
+		<script src="js/map.js"></script>
+		<script src="js/videos.js"></script>
+		<script src="js/photos.js"></script>
+		<script src="js/places.js"></script>
+<!--
+
+		<script src="js/debug.js"></script>
+
+
+-->
+        <meta charset="utf-8">
+        <title>Hotel Class</title>
+        <style>
+			.alert-show{
+				display:block;
+				border-radius: 5px;
+				border: 1px solid #000;
+				background: rgb(255, 255, 255);
+				padding: 5px; 
+				opacity: 0.9;
+				position: absolute;
+  				top: 30px;
+				left: 20px;
+				z-index: 100;
+				color:black;
+			}
+			.alert-hide{
+				display:none;
+			}
+        </style>        
+    </head>
+    <body>
+		<div id="buttonsdebug" style="display:block">
+		<!-- none block   -->
+		
+			<button onclick="javascript:showHotel();">Hotel</button>
+			<button onclick="javascript:hideMapInfo();">Hide Labels</button>
+			<button onclick="javascript:showMapInfo();">Show Labels</button>
+			<button onclick="javascript:escape();">Escape</button>
+			<!--
+			<button onclick="javascript:showPlaceFromTo(hotel,restaurants.asiatic);">Asiatic</button>
+			<button onclick="javascript:showPlaceFromTo(hotel,restaurants.french);">French</button>
+			<button onclick="javascript:showPlaceFromTo(hotel,suggestions.library);">Suggestion</button>
+			<button onclick="javascript:videoPause();">Video Pause</button>
+			-->
+			<button onclick="javascript:showPhotos();">Photos</button>
+			<button onclick="javascript:videoPlay();">Video</button>
+			<button id="idalert" onclick="javascript:showAlert('happy hour!!!!! at second flor<br/>My name is Joao, ask for me');">Alert</button>
+			<button onclick="javascript:next();">Next</button>
+			<button onclick="javascript:previous();">Previous</button>
+			<!--
+			<button onclick="javascript:mapUp();">Up</button>
+			<button onclick="javascript:mapDown();">Down</button>
+			<button onclick="javascript:mapRight();">Right</button>
+			<button onclick="javascript:mapLeft();">Left</button>
+			-->
+			<button onclick="javascript:showPlaces(xplaces);">Show Places</button>
+			<button onclick="javascript:showPlaces(xplace);">Show One Place</button>
+			<button onclick="javascript:firstPlace();">Show First Place</button>
+			<button onclick="javascript:gotoPlace('B');">Show Place B</button>
+			
+			
+		</div>
+		<div id="init" style="display:block; text-align:center">
+			<br/><br/><br/>
+			<center>
+				<img src="http://hotelclass.me/images/hotel-class-title.gif" />
+			</center>
+			<br/>
+
+			<div style="font-size:14pt; font-face:Arial;margin-top:10px;">
+				<span style="font-size:12pt; font-face:Arial;">
+					<em>
+						Open Hotel Class<br/>
+						<br/>
+						Try say:<br/>
+						Show me photos<br/>
+						Video play<br/>
+						Suggest me a french restaurant<br/>
+						Book today at ten p.m.<br/>
+						Suggest me something to do<br/>
+						Call a taxi<br/>
+					</em>
+				</span>
+			</div>
+			
+		</div>
+		<div id="content" style="display:none; background-color:#404040;padding-top:10px;" >
+		</div>
+		<audio id="alert-sound" >
+			<source src="sounds/dingdong.mp3" type="audio/mpeg">
+		</audio>
+		<div id="alert-text" class="alert-hide">
+		</div>
+
+		<div id="map" style="visibility:hidden;display:none;"></div>
+<script>
+DEBUG = false;
+var map;
+if(DEBUG)
+{
+	document.getElementById('buttonsdebug').style.display = 'block';
+	var tag = document.createElement('script');
+	tag.src = "js/debug.js";	
+	var script = document.getElementsByTagName('script')[0];
+	script.parentNode.insertBefore(tag, script);	
+}
+else
+{
+	document.getElementById('buttonsdebug').style.display = 'none';
+	var hotel = null;
+}
+var system = {
+	place:null, 
+	frame:'portal' // frame:portal | map | content 
+}
+//document.getElementById('idalert').click();
+
+function showAlert(m)
+{
+	document.getElementById("alert-sound").play();
+	document.getElementById('alert-text').innerHTML = '<table><tr><td><i class="material-icons" style="font-size:36px;color:blue">alarm</i></td>' + 
+		'<td>' + m + '<td></tr><table>';
+	document.getElementById('alert-text').setAttribute('class','alert-show');
+	setTimeout(hideAlert,10000);
+}
+function showWarning(m)
+{
+	document.getElementById('alert-text').innerHTML = '<table><tr><td><i class="material-icons" style="font-size:36px;color:red">error_outline</i></td>' + 
+		'<td>' + m + '<td></tr><table>';
+	document.getElementById('alert-text').setAttribute('class','alert-show');
+	setTimeout(hideAlert,3000);
+
+}
+function hideAlert()
+{
+	document.getElementById('alert-text').setAttribute('class','alert-hide');
+
+}
+
+
+function bye()
+{
+	showDiv('portal');
+}
+function escape()
+{
+	if(system.frame == 'content')
+	{
+		document.getElementById('content').innerHTML = '';
+		showDiv('map');
+	} else if (system.frame == 'map')
+	{
+		showHotel();
+	}
+}
+
+function next()
+{
+	//console.log('content=' + document.getElementById('content').getAttribute('content'));
+	if(system.frame == 'content')
+	{
+		if(document.getElementById('content').getAttribute('content') == 'photos')
+			nextPhoto();
+		else if (document.getElementById('content').getAttribute('content') == 'videos')
+			nextVideo();
+	} else if (system.frame == 'map')
+	{
+		nextPlace();
+	}
+}
+function previous()
+{
+	if(system.frame == 'content')
+	{
+		if(document.getElementById('content').getAttribute('content') == 'photos')
+			previousPhoto();
+		else if (document.getElementById('content').getAttribute('content') == 'videos')
+			previousVideo();
+	
+	} else if(system.frame == 'map')
+	{
+		previousPlace();
+	}
+
+}
+
+function showDiv(n)
+{
+	system.frame = n;
+	switch(n)
+	{
+		case 'map':
+			console.log('show map');
+			document.getElementById('map').style.display='block';
+			document.getElementById('map').style.visibility='visible';
+			document.getElementById('init').style.display='none';
+			document.getElementById('content').style.display='none';
+			break;
+		
+		case'content':
+			document.getElementById('init').style.display='none';
+			document.getElementById('map').style.visibility='hidden';
+			document.getElementById('map').style.display='none';
+			document.getElementById('content').style.display='block';
+			break;
+			
+		case 'portal':
+			document.getElementById('map').style.display='none';
+			document.getElementById('map').style.visibility='hidden';
+			document.getElementById('content').style.display='none';
+			document.getElementById('init').style.display='block';
+			break;
+	}
+
+}
+
+
+//var wsUri = "ws://127.0.0.1:8080";
+//var wsUri = "ws://34.224.37.165:8080";
+const wsUri = "ws://url-poc-server";
+var websocket;
+    
+function initWebSocket()
+{
+    websocket = new WebSocket(wsUri);
+    websocket.onopen = function(evt) { onOpen(evt) };
+    websocket.onclose = function(evt) { onClose(evt) };
+    websocket.onmessage = function(evt) { onMessage(evt) };
+    websocket.onerror = function(evt) { onError(evt) };
+}
+function onOpen(evt)
+{
+    console.log('Open Websocket');
+}
+
+function onClose(evt)
+{
+    console.log('Disconnect Websocket');
+	initWebSocket();
+}
+function onError(evt)
+{
+	console.log('Websocket Error:' + evt.data);
+}
+
+function doSend(message)
+{
+	writeToScreen("SENT: " + message); 
+	websocket.send(message);
+}
+
+
+function onMessage(evt)
+{
+    console.log('websocket message:' + evt.data);
+	var action = (JSON.parse(evt.data));
+	switch(action.cmd)
+	{
+		case 'setHotel':
+			console.log('set hotel');
+			console.log(action.object);
+			hotel = Object.assign({}, action.object);
+			break;
+		case 'showHotel':
+			showHotel();
+			break;
+		case 'showPlaces':
+			showPlaces(action.object);
+			break;
+			case 'videoPlay':
+			videoPlay();
+			break;
+		case 'videoPause':
+			videoPause();
+			break;
+		case 'videoMute':
+			videoMute();
+			break;
+		case 'videoUnmute':
+			videoUnmute();
+			break;
+		case 'zoomIn':
+			zoomIn();
+			break;
+		case 'zoomOut':
+			zoomOut();
+			break;
+		case 'zoomRestore':
+			zoomRestore();
+			break;
+		case 'mapLeft':
+			mapLeft();
+			break;
+		case 'mapRight':
+			mapRight();
+			break;
+		case 'mapUp':
+			mapUp();
+			break;
+		case 'mapDown':
+			mapDown();
+			break;
+		case 'showPhotos':
+			showPhotos();
+			break;
+		case 'next':
+			next();
+			break;
+		case 'previous':
+			previous();
+			break;
+		case 'hideMapInfo':
+			hideMapInfo();
+			break;
+		case 'showMapInfo':
+			showMapInfo();
+			break;
+		case 'escape':
+			escape();
+			break;
+		case 'gotoPlace':
+			gotoPlace(action.object);
+			break;
+		case 'alert':
+			showAlert(action.object);
+			break;
+		case 'bye':
+			bye();
+			break;
+	}
+}
+
+
+function initMap() {
+    var styleArray = [
+          {
+            featureType: "all",
+            stylers: [
+              { saturation: -80 }
+            ]
+          },{
+            featureType: "road.arterial",
+            elementType: "geometry",
+            stylers: [
+              { hue: "#00ffee" },
+              { saturation: 50 }
+            ]
+          },{
+            featureType: "poi.business",
+            elementType: "labels",
+            stylers: [
+              { visibility: "off" }
+            ]
+          }
+    ];
+    var styledMap = new google.maps.StyledMapType(styleArray,{name: "Styled Map"});
+
+    map = new google.maps.Map(document.getElementById('map'), {
+		disableDefaultUI: true,
+        mapTypeIds: [google.maps.MapTypeId.ROADMAP, 'map_style']
+    });
+
+    map.mapTypes.set('map_style', styledMap);
+    map.setMapTypeId('map_style');
+
+	directionsService = new google.maps.DirectionsService();
+	directionsDisplay = new google.maps.DirectionsRenderer({
+		suppressMarkers: true
+	});
+
+	if(!DEBUG)
+		initWebSocket();
+		
+	
+}
+        </script>
+    
+        <script async defer
+            src="https://maps.googleapis.com/maps/api/js?key=API-KEY&libraries=visualization&callback=initMap">
+        </script>
+    </body>
+</html>
